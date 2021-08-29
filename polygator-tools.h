@@ -2,6 +2,8 @@
 #ifndef POLYGATOR_TOOLS_H
 #define POLYGATOR_TOOLS_H
 
-#define POLYGATOR_SUBSYSTEM_FILE_PATH "/dev/polygator/subsystem"
+#define POLYGATOR_SUBSYSTEM_FILE_PATH   "/dev/polygator/subsystem"
+
+#define POLYGATOR_DEVICE_FILE_SIZE_MAX  0x10000
 
 #endif // POLYGATOR_TOOLS_H

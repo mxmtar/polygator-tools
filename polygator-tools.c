@@ -51,6 +51,32 @@ struct board {
 	struct board *next;
 };
 
+json_t *json;
+    json_error_t error;
+
+static json_t *load_device_json_file(const char *path, json_error_t *error)
+{
+    int j_fd;
+    int j_rc;
+    json_t *j_obj;
+    char j_buf[POLYGATOR_DEVICE_FILE_SIZE_MAX];
+
+    if (0 > (j_fd = open(path, O_RDONLY))) {
+        return 0;
+    }
+
+    if (0 > (j_rc = read(j_fd, j_buf, sizeof(j_buf)))) {
+        close(j_fd);
+        return 0;
+    }
+
+    j_obj = json_loadb(j_buf, j_rc, 0, error);
+
+    close(j_fd);
+
+    return j_obj;
+}
+
 int polygator_radio_channel_set_power_supply(const char *path, unsigned int position, unsigned int state)
 {
 	FILE *fp;
@@ -81,7 +107,7 @@ int polygator_radio_channel_get_power_supply(const char *path, unsigned int posi
 	size_t index;
 
 	if (path) {
-		if ((board = json_load_file(path, 0, &err))) {
+		if ((board = load_device_json_file(path, &err))) {
 	    	json_object_foreach(board, key, value) {
 				if (!strcmp(key, "channels") && json_is_array(value)) {
 					json_array_foreach(value, index, channel) {
@@ -143,7 +169,7 @@ int polygator_radio_channel_get_power_key(const char *path, unsigned int positio
 	size_t index;
 
 	if (path) {
-		if ((board = json_load_file(path, 0, &err))) {
+		if ((board = load_device_json_file(path, &err))) {
 	    	json_object_foreach(board, key, value) {
 				if (!strcmp(key, "channels") && json_is_array(value)) {
 					json_array_foreach(value, index, channel) {
@@ -182,7 +208,7 @@ int polygator_radio_channel_get_status(const char *path, unsigned int position)
 	size_t index;
 
 	if (path) {
-		if ((board = json_load_file(path, 0, &err))) {
+        if ((board = load_device_json_file(path, &err))) {
 	    	json_object_foreach(board, key, value) {
 				if (!strcmp(key, "channels") && json_is_array(value)) {
 					json_array_foreach(value, index, channel) {
@@ -494,7 +520,7 @@ int main (int argc, char **argv)
 	size_t i, index;
 	int run;
 	int res;
-	
+
 	struct board *board;
 	struct radio_channel *radio_channel;
 	size_t total_channel_number;
@@ -502,7 +528,7 @@ int main (int argc, char **argv)
 	x_sllist_struct_declare(board_list, struct board);
 	x_sllist_init(board_list);
 
-	if ((ss = json_load_file(POLYGATOR_SUBSYSTEM_FILE_PATH, 0, &err))) {
+	if ((ss = load_device_json_file(POLYGATOR_SUBSYSTEM_FILE_PATH, &err))) {
 	    json_object_foreach(ss, key, value) {
 			if (!strcmp(key, "version") && json_is_string(value)) {
 				printf("Polygator subsystem version=%s\n", json_string_value(value));
@@ -513,7 +539,7 @@ int main (int argc, char **argv)
 		}
 		json_decref(ss);
 	} else {
-		printf("json_load_file(%s) failed: %s\n", POLYGATOR_SUBSYSTEM_FILE_PATH, err.text);
+		printf("load_device_json_file(%s) failed: %s\n", POLYGATOR_SUBSYSTEM_FILE_PATH, err.text);
 		goto main_error;
 	}
 
@@ -545,13 +571,9 @@ int main (int argc, char **argv)
 	json_decref(boards);
 
 	// get boards channels
-	int j_fd;
-	int j_rc;
-	uint8_t j_buf[0x10000];
 	total_channel_number = 0;
 	for (board = board_list.head; board; board = board->next) {
-//		if ((j_board = json_load_file(board->path, 0, &err))) {
-                if ((-1 < (j_fd = open(board->path, O_RDONLY))) && (0 < (j_rc = read(j_fd, j_buf, sizeof(j_buf)))) && (j_board = json_loadb((const char *)j_buf, j_rc, 0, &err))) {
+        if ((j_board = load_device_json_file(board->path, &err))) {
 			json_object_foreach(j_board, key, value) {
 				if (!strcmp(key, "channels") && json_is_array(value)) {
 					json_array_foreach(value, index, j_channel) {
@@ -575,7 +597,7 @@ int main (int argc, char **argv)
 			}
 			json_decref(j_board);
 		} else {
-			printf("json_load_file(%s) failed line=%d column=%d position=%d: %s\n", board->path, err.line, err.column, err.position, err.text);
+			printf("load_device_json_file(%s) failed line=%d column=%d position=%d: %s\n", board->path, err.line, err.column, err.position, err.text);
 			goto main_error;
 		}
 	}
